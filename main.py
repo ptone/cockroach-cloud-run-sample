@@ -27,33 +27,10 @@ logger = logging.getLogger()
 
 def init_connection_engine():
     db_config = {
-        # [START cloud_sql_postgres_sqlalchemy_limit]
-        # Pool size is the maximum number of permanent connections to keep.
         "pool_size": 5,
-        # Temporarily exceeds the set pool_size if no connections are available.
         "max_overflow": 2,
-        # The total number of concurrent connections for your application will be
-        # a total of pool_size and max_overflow.
-        # [END cloud_sql_postgres_sqlalchemy_limit]
-
-        # [START cloud_sql_postgres_sqlalchemy_backoff]
-        # SQLAlchemy automatically uses delays between failed connection attempts,
-        # but provides no arguments for configuration.
-        # [END cloud_sql_postgres_sqlalchemy_backoff]
-
-        # [START cloud_sql_postgres_sqlalchemy_timeout]
-        # 'pool_timeout' is the maximum number of seconds to wait when retrieving a
-        # new connection from the pool. After the specified amount of time, an
-        # exception will be thrown.
         "pool_timeout": 30,  # 30 seconds
-        # [END cloud_sql_postgres_sqlalchemy_timeout]
-
-        # [START cloud_sql_postgres_sqlalchemy_lifetime]
-        # 'pool_recycle' is the maximum number of seconds a connection can persist.
-        # Connections that live longer than the specified amount of time will be
-        # reestablished
         "pool_recycle": 1800,  # 30 minutes
-        # [END cloud_sql_postgres_sqlalchemy_lifetime]
     }
 
     return init_tcp_connection_engine(db_config)
@@ -73,7 +50,6 @@ def init_tcp_connection_engine(db_config):
         psycopg_uri,
         **db_config
     )
-    # [END cloud_sql_postgres_sqlalchemy_create_tcp]
     pool.dialect.description_encoding = None
     return pool
 
@@ -111,14 +87,15 @@ def get_index_context():
     with db.connect() as conn:
         # Execute the query and fetch all results
         recent_votes = conn.execute(
-            "SELECT candidate, time_cast FROM votes "
+            "SELECT candidate, time_cast, emphatic FROM votes "
             "ORDER BY time_cast DESC LIMIT 5"
         ).fetchall()
         # Convert the results into a list of dicts representing votes
         for row in recent_votes:
             votes.append({
                 'candidate': row[0],
-                'time_cast': row[1]
+                'time_cast': row[1],
+                'emphatic': row[2],
             })
 
         stmt = sqlalchemy.text(
@@ -141,6 +118,11 @@ def get_index_context():
 def save_vote():
     # Get the team and time the vote was cast.
     team = request.form['team']
+    if 'emphatic' in request.form and request.form['emphatic'] == "true":
+        emphatic = True
+    else:
+        emphatic = False
+        
     time_cast = datetime.datetime.utcnow()
     # Verify that the team is one of the allowed options
     if team != "TABS" and team != "SPACES":
@@ -150,29 +132,25 @@ def save_vote():
             status=400
         )
 
-    # [START cloud_sql_postgres_sqlalchemy_connection]
     # Preparing a statement before hand can help protect against injections.
     stmt = sqlalchemy.text(
-        "INSERT INTO votes (time_cast, candidate)"
-        " VALUES (:time_cast, :candidate)"
+        "INSERT INTO votes (time_cast, candidate, emphatic)"
+        " VALUES (:time_cast, :candidate, :emphatic)"
     )
     try:
         # Using a with statement ensures that the connection is always released
         # back into the pool at the end of statement (even if an error occurs)
         with db.connect() as conn:
-            conn.execute(stmt, time_cast=time_cast, candidate=team)
+            conn.execute(stmt, time_cast=time_cast, candidate=team, emphatic=emphatic)
     except Exception as e:
         # If something goes wrong, handle the error in this section. This might
         # involve retrying or adjusting parameters depending on the situation.
-        # [START_EXCLUDE]
         logger.exception(e)
         return Response(
             status=500,
             response="Unable to successfully cast vote! Please check the "
                      "application logs for more details."
         )
-        # [END_EXCLUDE]
-    # [END cloud_sql_postgres_sqlalchemy_connection]
 
     return Response(
         status=200,

@@ -22,9 +22,9 @@ limitations under the License.
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 </head>
 <body>
-<nav class="red lighten-1">
+<nav class="purple lighten-1">
     <div class="nav-wrapper">
-        <a href="#" class="brand-logo center">Tabs VS Spaces</a>
+        <a href="#" class="brand-logo center">Tabs VS Spaces (v1.1)</a>
     </div>
 </nav>
 <div class="section">
@@ -40,6 +40,18 @@ limitations under the License.
                 {{'votes' if space_count - tab_count > 1 else 'vote'}}!
             {% endif %}
         </h4>
+    </div>
+    <div class="center">
+        <div class="card-panel">
+            <form action="#">
+                <p>
+                  <label>
+                  <input type="checkbox" id="emphatic" />
+                    <span><b>I'm emphatic about my choice</b></span>
+                  </label>
+                </p>
+                </form> 
+        </div>
     </div>
     <div class="row center">
         <div class="col s6 m5 offset-m1">
@@ -67,7 +79,7 @@ limitations under the License.
                     <i class="material-icons circle blue">space_bar</i>
                 {% endif %}
                 <span class="title">
-                    A vote for <b>{{vote.candidate}}</b>
+                    A{% if vote.emphatic %}n <b style="color:red;">emphatic</b>{% endif %} vote for <b>{{vote.candidate}}</b>
                 </span>
                 <p>was cast at {{vote.time_cast}}</p>
             </li>
@@ -75,18 +87,18 @@ limitations under the License.
     </ul>
 </div>
 <script>
-    function vote(team) {
+
+    function vote(team, emphatic) {
+        var checked = document.getElementById("emphatic").checked;
         var xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function () {
             if (this.readyState == 4) {
-                if (!window.alert(this.responseText)) {
-                    window.location.reload();
-                }
+                window.location.reload();
             }
         };
         xhr.open("POST", "/", true);
         xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-        xhr.send("team=" + team);
+        xhr.send("team=" + team + "&emphatic=" + checked);
     }
 
     document.getElementById("voteTabs").addEventListener("click", function () {
