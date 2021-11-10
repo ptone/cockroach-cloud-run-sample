@@ -3,3 +3,4 @@ Dockerfile
 __pycache__
 .pytest_cache
 .venv
+!cockroach-cluster.crt
